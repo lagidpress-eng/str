@@ -1,0 +1,12 @@
+
+:root{font-family:Arial,sans-serif;color:#13222f;background:#f3f6f8}
+*{box-sizing:border-box}body{margin:0}header{position:sticky;top:0;z-index:5;background:#123b5d;color:white;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+h1{font-size:20px;margin:0}header p{margin:2px 0 0;opacity:.8}button{border:0;border-radius:10px;padding:10px 12px;font-weight:700}
+header button{background:#fff;color:#123b5d}
+main{max-width:900px;margin:auto;padding:14px}
+.toolbar{display:grid;grid-template-columns:1fr 160px;gap:10px}
+input,select,textarea{width:100%;padding:11px;border:1px solid #c8d1d8;border-radius:9px;background:#fff;font-size:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.stat{background:#fff;padding:10px;border-radius:10px;text-align:center}.stat b{display:block;font-size:22px}
+.list{display:grid;gap:10px}.pole{background:#fff;border-radius:12px;padding:13px;box-shadow:0 1px 4px #0001}.pole-top{display:flex;justify-content:space-between;gap:10px}.pole h3{margin:0}.muted{color:#63717c}.desc{white-space:pre-wrap;max-height:85px;overflow:hidden;margin-top:8px;font-size:13px}.badge{padding:5px 8px;border-radius:999px;font-size:12px;height:max-content}.not{background:#e7edf2}.progress{background:#fff1b8}.completed{background:#c9f1d0}.problem{background:#ffd3d3}
+dialog{border:0;border-radius:14px;width:min(760px,96vw);padding:0}dialog::backdrop{background:#0008}.card{padding:18px;position:relative}.close{position:absolute;right:10px;top:10px;font-size:24px;background:transparent}.primary-link{display:inline-block;margin:10px 0;padding:10px 12px;background:#1677ff;color:white;text-decoration:none;border-radius:9px}label{display:block;font-weight:700;margin:12px 0 6px}pre{white-space:pre-wrap;background:#f5f7f9;padding:10px;border-radius:8px;max-height:260px;overflow:auto}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.save{width:100%;background:#123b5d;color:#fff;margin-top:14px;font-size:16px}.photo-count{font-size:13px;color:#52606a;margin-top:5px}
+@media(max-width:640px){.toolbar,.grid2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start}}

@@ -1,0 +1,9 @@
+{
+  "name": "Make Ready Agent",
+  "short_name": "MR Agent",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#123b5d",
+  "icons": []
+}
