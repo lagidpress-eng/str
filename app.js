@@ -154,17 +154,54 @@ $('#nearestBtn').addEventListener('click', ()=>{
   }, ()=>alert('Разрешите доступ к геолокации'));
 });
 
-async function boot(){
-  poles = await fetch('data.json').then(r=>r.json());
-  loadLocalState();
-  try{
-    const remote = await api("getAll");
-    if(remote?.rows){
-      const byPole = Object.fromEntries(remote.rows.map(r=>[Number(r.projectPole),r]));
-      poles = poles.map(p=>({...p,...(byPole[p.projectPole]||{})}));
+async function boot() {
+  try {
+    poles = await fetch('./data.json?v=5', {
+      cache: 'no-store'
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки data.json');
+      }
+      return response.json();
+    });
+
+    loadLocalState();
+
+    // Сразу показываем столбы.
+    render();
+
+    // Google-синхронизация больше не блокирует приложение.
+    if (API_URL && !API_URL.includes('PASTE_')) {
+      api('getAll')
+        .then(remote => {
+          if (remote && remote.rows) {
+            const byPole = Object.fromEntries(
+              remote.rows.map(row => [Number(row.projectPole), row])
+            );
+
+            poles = poles.map(pole => ({
+              ...pole,
+              ...(byPole[pole.projectPole] || {})
+            }));
+
+            render();
+          }
+        })
+        .catch(error => {
+          console.warn('Работаем без синхронизации:', error);
+        });
     }
-  }catch(e){console.warn("Offline mode",e)}
-  render();
+
+  } catch (error) {
+    console.error(error);
+
+    document.querySelector('#list').innerHTML = `
+      <div class="pole">
+        <b>Ошибка загрузки данных</b><br>
+        ${error.message}
+      </div>
+    `;
+  }
 }
 boot();
 
