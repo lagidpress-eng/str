@@ -3,7 +3,7 @@ let poles = [];
 let currentIndex = null;
 
 // Paste your deployed Apps Script Web App URL here:
-const API_URL = "https://script.google.com/macros/s/AKfycbzHb_M6eDRcKIyOb-0oDI7568f4gIeyjsKA7FPd-4XrQKu-j5z9e7vSRyjxXmtN1UTZ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyQgr7hWXYSj7D6yXWTm1yhm1UMest-c910MFo0OoesvW-ceiJMdRXa6ZyXxiroDAcV/exec";
 
 const $ = s => document.querySelector(s);
 
