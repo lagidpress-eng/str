@@ -1,106 +1,241 @@
-
-const SPREADSHEET_ID = "1XpgEdhMX-OWar77KEOPUOAFl8HX_BIi6sQUSGMnGedg";
-const SHEET_NAME = "Pole Register";
+const PRODUCTION_SPREADSHEET_ID = "1pb046ZhvDjc-9VX4KqeqUlmJyp0yxT9nSe8Vnt_3Vt0";
+const PRODUCTION_SHEET_NAME = "Blank";
 const PHOTOS_FOLDER_ID = "1d4Qz8Lh4K4YwmgsQ9gjAwiQvTRp1mNSu";
 
+// Вставь сюда ссылку на свою Google My Maps.
+const MY_MAPS_URL = "PASTE_GOOGLE_MY_MAPS_URL_HERE";
+
+const WORK_ROWS = {
+  newStrand: "PLACE  NEW STRAND",
+  installDownGuy: "INSTALL DOWNGUY",
+  reworkDownGuy: "TRANSFER / REWORK EXISTING DOWN GUY",
+  overheadGuy: "PLACE OVERHEAD GUY",
+  groundBond: "INSTALL POLE GROUND AND BOND",
+  raiseLower: "RAISE OR LOWER  POLE ATTACHMENT",
+  riserGuard: "INSTALL NEW RISER GUARD TO SECURE CABLES TO POLES",
+  treeTrimming: "TREE TRIMMING",
+  fArms: "PLACE F-ARMS",
+  guardArm: "PLACE GUARD ARM",
+  doubleGuardArm: "PLACE DOUBLE GUARD ARM",
+  removeArm: "REMOVE ARM",
+  poleTransfer: "POLE TRANSFER"
+};
+
 function doGet() {
-  return ContentService
-    .createTextOutput(JSON.stringify({ok:true, service:"Make Ready Agent"}))
-    .setMimeType(ContentService.MimeType.JSON);
+  return HtmlService.createTemplateFromFile("Index")
+    .evaluate()
+    .setTitle("Make Ready Agent");
 }
 
-function doPost(e) {
-  try {
-    const req = JSON.parse(e.postData.contents || "{}");
-    let result;
-    if (req.action === "savePole") result = savePole(req);
-    else if (req.action === "uploadPhoto") result = uploadPhoto(req);
-    else if (req.action === "getAll") result = getAll();
-    else result = {ok:false, error:"Unknown action"};
-    return json(result);
-  } catch (err) {
-    return json({ok:false, error:String(err)});
-  }
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-function json(obj){
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+function getConfig() {
+  return {myMapsUrl: MY_MAPS_URL};
 }
 
-function getSheet(){
-  return SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+function getProductionSheet_() {
+  const sh = SpreadsheetApp.openById(PRODUCTION_SPREADSHEET_ID)
+    .getSheetByName(PRODUCTION_SHEET_NAME);
+  if (!sh) throw new Error("Production sheet not found: " + PRODUCTION_SHEET_NAME);
+  return sh;
 }
 
-function getHeaders(sheet){
-  return sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+function normalize_(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toUpperCase();
 }
 
-function findRowByProjectPole(sheet, projectPole){
-  const vals = sheet.getRange(2,1,Math.max(sheet.getLastRow()-1,1),1).getValues().flat();
-  const idx = vals.findIndex(v => Number(v) === Number(projectPole));
-  return idx < 0 ? -1 : idx + 2;
-}
+function findDescriptionRow_(sh, description) {
+  const lastRow = sh.getLastRow();
+  const values = sh.getRange(1, 1, lastRow, 1).getDisplayValues().flat();
+  const target = normalize_(description);
 
-function savePole(req){
-  const sh = getSheet();
-  const headers = getHeaders(sh);
-  const row = findRowByProjectPole(sh, req.projectPole);
-  if(row < 0) throw new Error("Pole not found: " + req.projectPole);
-
-  const map = {
-    "Measured Distance (ft)": req.measuredDistance || "",
-    "Height Changed?": req.heightChanged || "No",
-    "Trimming Required / Notes": req.trimmingNotes || "",
-    "Actual HOA": req.actualHoa || "",
-    "Before Photo 1": (req.beforeLinks||[])[0] || "",
-    "Before Photo 2": (req.beforeLinks||[])[1] || "",
-    "Before Photo 3": (req.beforeLinks||[])[2] || "",
-    "After Photo 1": (req.afterLinks||[])[0] || "",
-    "After Photo 2": (req.afterLinks||[])[1] || "",
-    "Status": req.status || "Not started",
-    "Field Notes": req.fieldNotes || ""
-  };
-
-  Object.keys(map).forEach(name=>{
-    const c = headers.indexOf(name);
-    if(c >= 0) sh.getRange(row,c+1).setValue(map[name]);
+  const index = values.findIndex(v => {
+    const text = normalize_(v);
+    return text === target || text.startsWith(target) || target.startsWith(text);
   });
-  return {ok:true,row};
+
+  if (index < 0) throw new Error("Production row not found: " + description);
+  return index + 1;
 }
 
-function uploadPhoto(req){
+function getPoleHeaderRow_(sh) {
+  const values = sh.getRange(1, 1, Math.min(sh.getLastRow(), 20), sh.getLastColumn())
+    .getDisplayValues();
+
+  for (let r = 0; r < values.length; r++) {
+    if (values[r].filter(v => normalize_(v) === "POLE #").length >= 2) return r + 1;
+  }
+  throw new Error("Pole header row not found");
+}
+
+function getPoleNumberRow_(sh) {
+  return getPoleHeaderRow_(sh) + 1;
+}
+
+function findTotalColumn_(sh) {
+  const lastCol = sh.getLastColumn();
+  const headerRows = sh.getRange(1, 1, Math.min(sh.getLastRow(), 15), lastCol)
+    .getDisplayValues();
+
+  for (let c = 0; c < lastCol; c++) {
+    if (headerRows.some(row => normalize_(row[c]) === "TOTAL")) return c + 1;
+  }
+  return lastCol;
+}
+
+function ensurePoleColumn_(sh, projectPole) {
+  const poleRow = getPoleNumberRow_(sh);
+  let lastCol = sh.getLastColumn();
+  let values = sh.getRange(poleRow, 1, 1, lastCol).getDisplayValues()[0];
+
+  let found = values.findIndex(v => Number(v) === Number(projectPole));
+  if (found >= 0) return found + 1;
+
+  let totalCol = findTotalColumn_(sh);
+
+  // Используем пустую колонку перед TOTAL, если она есть.
+  for (let c = 5; c < totalCol; c++) {
+    if (!values[c - 1]) {
+      sh.getRange(poleRow - 1, c).setValue("Pole #");
+      sh.getRange(poleRow, c).setValue(projectPole);
+      return c;
+    }
+  }
+
+  // Если пустых колонок нет — вставляем новую перед TOTAL.
+  sh.insertColumnBefore(totalCol);
+
+  // Копируем формат предыдущей pole-колонки.
+  const sourceCol = Math.max(5, totalCol - 1);
+  sh.getRange(1, sourceCol, sh.getMaxRows(), 1)
+    .copyTo(sh.getRange(1, totalCol, sh.getMaxRows(), 1), {formatOnly: true});
+
+  sh.getRange(poleRow - 1, totalCol).setValue("Pole #");
+  sh.getRange(poleRow, totalCol).setValue(projectPole);
+  return totalCol;
+}
+
+function toNumberOrBlank_(value) {
+  if (value === "" || value === null || value === undefined) return "";
+  const n = Number(value);
+  return Number.isFinite(n) ? n : value;
+}
+
+function updateProduction_(projectPole, work) {
+  const sh = getProductionSheet_();
+  const poleCol = ensurePoleColumn_(sh, projectPole);
+
+  Object.entries(WORK_ROWS).forEach(([key, description]) => {
+    const row = findDescriptionRow_(sh, description);
+    sh.getRange(row, poleCol).setValue(toNumberOrBlank_(work[key]));
+  });
+
+  SpreadsheetApp.flush();
+}
+
+function getChangesSheet_() {
+  const ss = SpreadsheetApp.openById(PRODUCTION_SPREADSHEET_ID);
+  let sh = ss.getSheetByName("Changes Log");
+
+  if (!sh) {
+    sh = ss.insertSheet("Changes Log");
+    sh.getRange(1, 1, 1, 17).setValues([[
+      "Timestamp", "Project Pole", "Pole ID",
+      "Original HOA", "Actual HOA", "Height Change Description",
+      "Anchor Status", "Anchor Details",
+      "Bonding Status", "Bonding Details",
+      "VGR Status", "VGR Details",
+      "Down Guy Actual", "Reason / Field Condition",
+      "Status", "Field Notes", "Crew"
+    ]]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function saveChangeLog_(data) {
+  const sh = getChangesSheet_();
+  sh.appendRow([
+    new Date(),
+    data.projectPole || "",
+    data.poleId || "",
+    data.originalHoa || "",
+    data.actualHoa || "",
+    data.heightChangeDescription || "",
+    data.anchorStatus || "",
+    data.anchorDetails || "",
+    data.bondingStatus || "",
+    data.bondingDetails || "",
+    data.vgrStatus || "",
+    data.vgrDetails || "",
+    data.downGuyActual || "",
+    data.changeReason || "",
+    data.status || "",
+    data.fieldNotes || "",
+    data.crew || ""
+  ]);
+}
+
+function getLatestChanges() {
+  const sh = getChangesSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  const values = sh.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
+  const latest = {};
+
+  values.forEach(r => {
+    const pole = Number(r[1]);
+    if (!pole) return;
+    latest[pole] = {
+      projectPole: pole,
+      poleId: r[2],
+      originalHoa: r[3],
+      actualHoa: r[4],
+      heightChangeDescription: r[5],
+      anchorStatus: r[6],
+      anchorDetails: r[7],
+      bondingStatus: r[8],
+      bondingDetails: r[9],
+      vgrStatus: r[10],
+      vgrDetails: r[11],
+      downGuyActual: r[12],
+      changeReason: r[13],
+      status: r[14] || "Not started",
+      fieldNotes: r[15],
+      crew: r[16]
+    };
+  });
+
+  return Object.values(latest);
+}
+
+function savePole(data) {
+  updateProduction_(data.projectPole, data.work || {});
+  saveChangeLog_(data);
+  return {ok: true};
+}
+
+function uploadPhoto(payload) {
   const root = DriveApp.getFolderById(PHOTOS_FOLDER_ID);
-  const poleFolder = getOrCreateFolder(root, String(req.poleId || ("Pole_"+req.projectPole)));
-  const typeFolder = getOrCreateFolder(poleFolder, req.photoType || "OTHER");
-  const bytes = Utilities.base64Decode(req.base64);
-  const blob = Utilities.newBlob(bytes, req.mimeType || "image/jpeg");
-  const ext = (req.mimeType||"image/jpeg").includes("png") ? "png" : "jpg";
-  const name = `${req.poleId || req.projectPole}_${req.photoType}_${req.index}.${ext}`;
-  const file = typeFolder.createFile(blob).setName(name);
-  return {ok:true,url:file.getUrl(),name};
+  const poleName = String(payload.poleId || ("Pole_" + payload.projectPole));
+  const poleFolder = getOrCreateFolder_(root, poleName);
+  const typeFolder = getOrCreateFolder_(poleFolder, payload.photoType || "OTHER");
+
+  const bytes = Utilities.base64Decode(payload.base64);
+  const mime = payload.mimeType || "image/jpeg";
+  const ext = mime.includes("png") ? "png" : "jpg";
+  const safeIndex = String(payload.index || 1).padStart(3, "0");
+  const name = `${poleName}_${payload.photoType}_${safeIndex}.${ext}`;
+  const blob = Utilities.newBlob(bytes, mime, name);
+  const file = typeFolder.createFile(blob);
+
+  return {ok: true, url: file.getUrl(), name: name};
 }
 
-function getOrCreateFolder(parent,name){
+function getOrCreateFolder_(parent, name) {
   const it = parent.getFoldersByName(name);
   return it.hasNext() ? it.next() : parent.createFolder(name);
-}
-
-function getAll(){
-  const sh = getSheet();
-  const values = sh.getDataRange().getValues();
-  const headers = values.shift();
-  const idx = name => headers.indexOf(name);
-  const rows = values.map(r=>({
-    projectPole:r[idx("Project Pole")],
-    poleId:r[idx("Pole ID")],
-    measuredDistance:r[idx("Measured Distance (ft)")],
-    heightChanged:r[idx("Height Changed?")],
-    trimmingNotes:r[idx("Trimming Required / Notes")],
-    actualHoa:r[idx("Actual HOA")],
-    status:r[idx("Status")],
-    fieldNotes:r[idx("Field Notes")]
-  }));
-  return {ok:true,rows};
 }
