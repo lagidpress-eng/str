@@ -1,0 +1,15 @@
+V4 PHOTO IMPORT
+
+1. Замени 5 файлов в Apps Script: Code.gs, Index, Stylesheet, JavaScript, Data.
+2. Проверь MY_MAPS_URL в Code.gs.
+3. Deploy → Manage deployments → Edit → New version → Deploy.
+4. Открой /exec.
+
+Import Photos:
+- iPhone/Android: выбрать много фото.
+- PC: выбрать папку.
+- GPS EXIF → ближайший Pole.
+- Можно ограничить расстояние.
+- AUTO Before/After делит фотографии каждого Pole пополам по времени.
+- Перед загрузкой обязательно проверь preview.
+- Фото без GPS/близкого Pole не загружаются.
